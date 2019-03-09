@@ -57,6 +57,9 @@ Boeing = read.csv("data/BoeingStock.csv")
 
 #data載入
 
+```
+
+```{r}
 str(IBM)
 str(GE)
 str(ProcterGamble)
@@ -77,6 +80,9 @@ Boeing$Date = as.Date(Boeing$Date, "%m/%d/%y")
 
 #先轉換為date
 
+
+```
+```{r}
 summary(IBM)
 summary(GE)
 summary(ProcterGamble)
@@ -110,7 +116,7 @@ __§ 1.6__ What is the maximum stock price of Coca-Cola over this time period?
 ```{r}
 max(CocaCola$StockPrice)
 
-#Maximum stock price of Coca-Cola:146.6
+#Maximum stock price of Cocacola:146.6
 ```
 
 __§ 1.7__ What is the median stock price of Boeing over this time period?
@@ -124,7 +130,7 @@ __§ 1.8__ What is the standard deviation of the stock price of Procter & Gamble
 ```{r}
 sd(ProcterGamble$StockPrice)
 
-#standard deviation of the stock price of Procter & Gamble:18.19
+#standard deviation of the stock price of ProcterGamble:18.19
 ```
 
 <br><hr>
@@ -172,7 +178,7 @@ abline(v=as.Date(c("1983-01-01")), lwd=1)
 __§ 3.1__ Which stock fell the most right after the technology bubble burst in March 2000?
 ```{r}
 plot(CocaCola$Date[301:432], CocaCola$StockPrice[301:432], type="l", col="red", ylim=c(0,240))
-lines(ProcterGamble$Date[301:432], ProcterGamble$StockPrice[301:432], col="blue")
+lines(ProcterGamble$Date[301:432], ProcterGamble$StockPrice[301:432], col="black")
 lines(IBM$Date[301:432], IBM$StockPrice[301:432], col="green")
 lines(GE$Date[301:432], GE$StockPrice[301:432], col="purple")
 lines(Boeing$Date[301:432], Boeing$StockPrice[301:432], col="orange")
@@ -191,14 +197,14 @@ __§ 3.2__ Which stock reaches the highest value in the time period 1995-2005?
 __§ 3.3__ In October of 1997, there was a global stock market crash that was caused by an economic crisis in Asia. Comparing September 1997 to November 1997, which companies saw a decreasing trend in their stock price? (Select all that apply.)
 ```{r}
 plot(CocaCola$Date[301:432], CocaCola$StockPrice[301:432], type="l", col="red", ylim=c(0,240))
-lines(ProcterGamble$Date[301:432], ProcterGamble$StockPrice[301:432], col="blue")
+lines(ProcterGamble$Date[301:432], ProcterGamble$StockPrice[301:432], col="black")
 lines(IBM$Date[301:432], IBM$StockPrice[301:432], col="green")
 lines(GE$Date[301:432], GE$StockPrice[301:432], col="purple")
 lines(Boeing$Date[301:432], Boeing$StockPrice[301:432], col="orange")
 abline(v=as.Date(c("1997-09-01")), lwd=1)
 abline(v=as.Date(c("1997-11-01")), lwd=1)
 
-#在其中Boeing(orange) and ProcterGamble(blue) 有明顯下降趨勢
+#在其中Boeing(orange) and ProcterGamble(black) 有明顯下降趨勢
 ```
 
 __§ 3.4__ In the last two years of this time period (2004 and 2005) which stock seems to be performing the best, in terms of increasing stock price?
