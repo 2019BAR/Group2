@@ -78,8 +78,7 @@ Which state has the largest number of interviewees?
 __§ 1.4__ What proportion of interviewees are citizens of the United States?
 ```{r}
 #利用table抓取CPS中受訪者的公民身份的欄位
-table(CPS$Citizenship)
-(116639+7073)/131302
+table(CPS$Citizenship!="Non-Citizen")%>%prop.table
 #Proportion of interviewees are citizens of the United States is 0.942.
 ```
 
@@ -162,11 +161,7 @@ How many states had all interviewees living in a metropolitan area? Again, treat
 
 __§ 2.4__ Which region of the United States has the largest proportion of interviewees living in a non-metropolitan area?
 ```{r}
-table(CPS$Region, is.na(CPS$MetroAreaCode))
-10674/(20010+10674)
-5609/(20330+5609)
-9871/(31631+9871)
-8084/(25093+8084)
+tapply(is.na(CPS$MetroAreaCode),CPS$Region,mean)
 #34.8% in the Midwest (the largest propotion of interviewees living in a non-metropolitan area)
 ```
 
@@ -222,14 +217,14 @@ summary(CPS)
 
 __§ 3.3__ Which of the following metropolitan areas has the largest number of interviewees?
 ```{r}
-sort(table(CPS$MetroArea))
+sort(table(CPS$MetroArea))%>%tail
 #New York-Northern New Jersey-Long Island, NY-NJ-PA:5409
 ```
 
 __§ 3.4__ Which metropolitan area has the highest proportion of interviewees of Hispanic ethnicity?
 ```{r}
 #the average amount of Hispanic sorted by MetroArea
-sort(tapply(CPS$Hispanic, CPS$MetroArea, mean))
+sort(tapply(CPS$Hispanic, CPS$MetroArea, mean))%>%tail
 #Laredo, TX : 0.966292 
 ```
 
@@ -237,7 +232,7 @@ __§ 3.5__ Determine the number of metropolitan areas in the United States from 
 ```{r}
 #種族：Race
 #CPS$Race需指定為"Asian"
-sort(tapply(CPS$Race == "Asian", CPS$MetroArea, mean))
+sort(tapply(CPS$Race == "Asian", CPS$MetroArea, mean))%>%tail
 #可得出大於20％的共有四個
 ```
 
@@ -246,7 +241,7 @@ __§ 3.6__  Passing na.rm=TRUE to the tapply function, determine which metropoli
 #no high school diploma可從education查找
 #CPS$Education == "No high school diploma"
 #need to ignore missing values(use  na.rm=TRUE)
-sort(tapply(CPS$Education == "No high school diploma", CPS$MetroArea, mean, na.rm=TRUE))
+sort(tapply(CPS$Education == "No high school diploma", CPS$MetroArea, mean, na.rm=TRUE))%>%head
 #Iowa City, IA(2.9%) has the smallest proportion of interviewees who have received no high school diploma.
 ```
 
@@ -281,7 +276,7 @@ __§ 4.3__ What proportion of the interviewees from the "New York-Northern New J
 #1.interviewees from the "New York-Northern New Jersey-Long Island, NY-NJ-PA"
 #2.have a country of birth that is not the United States
 table(CPS$MetroArea == "New York-Northern New Jersey-Long Island, NY-NJ-PA", CPS$Country != "United States")
-
+#方法2：tapply(CPS$Country!="United States",CPS$MetroArea=="New York-Northern New Jersey-Long Island, NY-NJ-PA",mean,na.rm=TRUE)
 ```
 
 ```{r}
@@ -292,19 +287,19 @@ table(CPS$MetroArea == "New York-Northern New Jersey-Long Island, NY-NJ-PA", CPS
 __§ 4.4__ Which metropolitan area has the largest number (note -- not proportion) of interviewees with a country of birth in India? 
 ```{r}
 #Sum is used to count numbers of a particular country in a particular metropolitan area.
-sort(tapply(CPS$Country == "India", CPS$MetroArea, sum, na.rm=TRUE))
+sort(tapply(CPS$Country == "India", CPS$MetroArea, sum, na.rm=TRUE))%>%tail
 #NY-NJ-PA has 96 interviewees born in India.
 ```
 
 In Brazil?
 ```{r}
-sort(tapply(CPS$Country == "Brazil", CPS$MetroArea, sum, na.rm=TRUE))
+sort(tapply(CPS$Country == "Brazil", CPS$MetroArea, sum, na.rm=TRUE))%>%tail
 #Boston-Cambridge-Quincy, MA-NH has 18 interviewees born in Brazil.
 ```
 
 In Somalia?
 ```{r}
-sort(tapply(CPS$Country == "Somalia", CPS$MetroArea, sum, na.rm=TRUE))
+sort(tapply(CPS$Country == "Somalia", CPS$MetroArea, sum, na.rm=TRUE))%>%tail
 #Minneapolis-St Paul-Bloomington, MN-WI  has 17 interviewees born in Somalia.
 ```
 
