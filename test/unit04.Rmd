@@ -159,29 +159,58 @@ range(rated)
 &nbsp; ■ &nbsp; 請用統計的方法來檢定這一件事<br>
 &nbsp; ■ &nbsp; 請畫一個圖來檢驗這一件事<br>
 &nbsp; ■ &nbsp; 對資料科學家而言，上述哪一種方法比較有說服力呢？<br>
+```{r}
+#統計方法會較有說服力
+```
 &nbsp; ■ &nbsp; 對一般經理人員來說，上述哪一種方法比較有說服力呢？<br>
+```{r}
+#用圖片會較有說服力
+```
+
 </p class="qiz"><br>
 ```{r}
+#資料整理合併
 rate=cbind(1:21,rated,rating)%>% data.frame %>% as.tbl %>% setNames(c("team","rated","rating"))
-lm(formula=rated~rating,data=rate[-c(1,5,17,18),])
-cor.test(rate[-c(1,5,17,18),]$rating,rate[-c(1,5,17,18),]$rated)
+#給分>得分
+rate$a= rate$rating/rate$rated>1
+#給分與得分接近者
+rate$b= rate$rating/rate$rated>0.95&rate$rating/rate$rated<1.05
 
-#從相關分析中可以得知所有組別的得給分負相關不太明顯只有-0.12 pvalue=0.59不顯著
-#將資料會成圖後可以發現有三群主要群體分別為給分高得分低 給低得高 給得相當 與偏差值較大的數值
-#先把1,17,18去除後取得較低的相關係數也有較顯著的結果
 ```
 
 ```{r}
-rate$a= rate$rating/rate$rated>1
-rate$b= rate$rating/rate$rated>0.95&rate$rating/rate$rated<1.05
+#相關係數檢定
+cor.test(rate$rated,rate$rating)
+#雖然相關係數小於0但p-value不低於0.05因此此次檢定不顯著
 ```
 
+<span>我們先把資料視覺化</span><br>
 ```{r}
 ggplot(rate,aes(rated,rating,label=team))+
- geom_abline()+geom_text()+geom_smooth(method="lm",se=F)+labs(x="得分",y="給分")
-
+ geom_abline()+geom_text()+labs(title="各組給分得分",x="得分",y="給分")
 ```
 
+<span>從圖中可以發現有些點距離其他點很遠所以我們用另外一張圖來觀察</span><br>
+```{r}
+ggplot(rate,aes(rated,rating,label=team,col=b))+
+ geom_abline()+geom_text()+labs(title="各組給分得分分差多寡",x="得分",y="給分")
+```
+
+<span>這張圖可以看到給分得分相當與差距較大的組別</span><br>
+<span>我們可以找到有部分點是遠離三大群的分別是1,5,17,18</span><br>
+<span>去除後可以得到下面這張圖</span><br>
+```{r}
+ggplot(rate[-c(1,5,17,18),],aes(rated,rating,label=team))+
+ geom_smooth(method="lm",se=F)+geom_text()+labs(title="各組給分得分分差多寡",x="得分",y="給分")
+```
+
+<span>從圖上可以看出來各點分布的趨勢是往右下的從圖上判斷給分得分是負相關的</span>
+<span>去除離群值後再做一次檢定</span><br>
+```{r}
+ratefix=rate[-c(1,5,17,18),]
+cor.test(ratefix$rated,ratefix$rating)
+```
+<span>相關係數為-0.506且p-value小於0.05是顯著的因此我們可以判斷分數越高的組別給予的分數是相對較低的反之亦然</span>
 
 <br><br><br>
 
