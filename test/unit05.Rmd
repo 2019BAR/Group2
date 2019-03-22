@@ -1,0 +1,389 @@
+---
+title: 第五單元：機率概論 with R
+author: 中山大學管理學院 卓雍然
+date: "`r Sys.time()`"
+output: 
+  html_document:
+    highlight: pygments
+    theme: flatly
+    css: style.css
+---
+
+```{r results='hide', message=FALSE, warning=FALSE, echo=F}
+# 這些程式碼設定網頁的格式，並安裝、載入一些基本的套件，請大家不要去改動<br>
+rm(list=ls(all=T))
+knitr::opts_chunk$set(comment = NA)
+knitr::opts_knit$set(global.par = TRUE)
+par(cex=0.8)
+options(scipen=20, digits=5, width=80)
+if(!require(pacman)) install.packages("pacman")
+```
+<hr>
+
+**學習重點：**使用R複習並練習操作「機率」的基本觀念
+
+* 目標族群：Target Population
+* 目標變數： Target Variable
+* 樣本 vs. 樣本點 Sample vs. Point
+* 隨機抽樣: sample()
+* 重複實驗: replicate()
+* 隨機變數: Random Variable
+* 分布 Distribution
+    + 類別 vs. 數值 樣本(向量)
+    + 類別值 vs. 連續值分布  Discrete vs. Continuous
+    + 數量分布 vs. 機率分布 Frequency vs. Density
+    + 實證分布 vs. 理論分布 Empirical vs. Theoretical
+    + 抽樣分布: Sampling Distribution
+
+<br>
+```{r results='hide', message=FALSE, warning=FALSE}
+pacman::p_load(dplyr)
+```
+<hr>
+
+### 【A】使用「向量物件」代表「族群」
+
+為了方便討論，通常我們用一個類別或數量向量(factor or numeric vector)來代表某一個族群，向量之中的每一個值，代表族群之中的某一個研究對象。
+
+##### A1. `Skin`：用類別向量代表族群之中的類別變數
+產生一個長度為10的類別向量：`Skin`，用它來代表某一個10個人的族群當中每一個人的膚色
+```{r}
+Skin = rep(c("White","Yellow","Black","Others"), 1:4) %>% factor
+Skin
+```
+
+用`table()`計算各分類(level)的數量
+```{r}
+table(Skin)
+```
+
+用直條圖觀察各分類的數量
+```{r fig.height=3, fig.width=4}
+table(Skin) %>% 
+  barplot(main="Dist. of Skin Color",xlab="Skin Color", ylab="Count")
+```
+
+##### A2. `Weight`：用數值向量代表族群之中的數值變數
+產生一個長度為100的數值向量：Weight，，用它來代表某一個10個人的族群當中每一個人的膚色
+```{r}
+set.seed(2)                         # set.seed for randomization
+Weight = rnorm(100,mean=60,sd=5)    # 100 random samples
+```
+
+用直方圖觀察它的數值分布，比較一下直條圖和直方圖有什麼異同
+```{r  fig.height=3.2, fig.width=7.2, message=FALSE, warning=FALSE}
+par(mfrow=c(1,2), cex=0.8)
+hist(Weight, main="體重的分布")
+barplot(table(Skin), main="膚色的分布", xlab="", las=2)
+```
+```{r}
+#有獎徵答
+par(mfrow=c(2,2),cex=0.7)
+table(Skin) %>% barplot(main="類別變數的數量分布", ylab="數量", xlab="類別名稱")
+table(Skin) %>% prop.table %>% barplot(main="類別變數的機率分布", ylab="密度", xlab="類別名稱")
+hist(Weight, main="連續變數的數量分布",xlab="變數範圍",ylab="數量")
+hist(Weight, freq=F, main="連續變數的機率分布",xlab="變數範圍",ylab="密度")
+```
+
+<p class="qiz">
+<span style="font-size:24px">`r "\U1F5FF"` 問題討論：</span><br>
+&nbsp; ■ &nbsp; 直條圖和直方圖有什麼異同？<br>
+```{r}
+#直方圖以連續資料分成數個等大的區間進行記量
+#直條圖則是以離散資料對個別資料進行記量
+```
+
+&nbsp; ■ &nbsp; 「分布」是什麼？<br>
+```{r}
+#資料在各區間集中分散的狀況
+```
+
+&nbsp; ■ &nbsp; 類別變數和數值變數的分布有什麼異同？<br>
+```{r}
+#數質變數有順序性但類別變數沒有順序性 數值必須設定區間 類別不用
+```
+
+</p class="qiz">
+
+<p class="wwl">
+<span style="font-size:24px">`r "\U1F4A1"` 學習重點：</span><br>
+&nbsp; ■ &nbsp; 分佈一般是指變數可能出現的值所出現的次數<br>
+&nbsp; ■ &nbsp; 類別變數可能出現的值是有限的，所以各分類出現的次數可以清楚的被計算出來<br>
+&nbsp; ■ &nbsp; 連續變數可能出現的值是無限的，所以我們需要指定數值區間，才能夠計算出現次數<br>
+&nbsp; ■ &nbsp; 該數值區間就是直方圖的「欄寬(binwidth)」<br>
+</p class="wwl"><br><hr>
+
+### 【B】數量分布和機率密度函數
+如果我們改變直方圖的`binwdith`
+```{r fig.height=3.2, fig.width=7.2}
+par(mfrow=c(2,3), cex=0.75, mar=c(2,4,3,2))
+for(bw in 1:6)
+  hist(Weight, seq(45,75,bw), main=paste("bw =",bw),xlab="")
+```
+<br><br>
+<span style="font-size:24px">`r "\U1F5FF"`:</span> 
+*`binwidth`代表什麼？ 它會如何改變直方圖的形狀？ 為甚麼？*<br><br>
+```{r}
+#每個直方的欄寬或是區間大小
+```
+
+如果我們將族群增大為10,000人
+```{r fig.height=3.2, fig.width=7.2}
+set.seed(4); W10K = rnorm(10000,60,5) 
+for(bw in 1:6) {
+  hist(W10K, breaks=seq(40,85,bw), main=paste("bw =",bw),xlab="")
+  }
+```
+<br>
+將Y軸從「次數(Frequency)」改為「密度(Density)」，
+並且標上我們原先用來產生族群向量的「機率密度函數」
+```{r fig.height=3.2, fig.width=7.2}
+for(bw in 1:6) {
+  hist(W10K,breaks=seq(40,85,bw),freq=F,ylim=c(0,0.08),main=paste("bw =",bw),ylab="density")
+  curve(dnorm(x,60,5),40,85,col='red',add=T)
+  }
+```
+<br><br>
+
+<p class="wwl">
+<span style="font-size:24px">`r "\U1F4A1"` 學習重點：</span><br>
+&nbsp; ■ &nbsp; 族群太小時，太窄或太寬的binwidth都很容易扭曲數值分佈的形狀<br>
+&nbsp; ■ &nbsp; 族群夠大時，我們就可以用較窄的binwidth，讓直方圖逼近真實的數值分布<br>
+&nbsp; ■ &nbsp; binwidth趨近於零時，不連續的「直方圖」就會逼近連續的「數值分布函數」<br>
+&nbsp; ■ &nbsp; 等比例改變分布函數的高度，讓它下方的面積等於1，它就會變成「機率密度函數」<br>
+&nbsp; ■ &nbsp; 數值分布函數下方的面積代表族群中的數值落在某一區間的次數<br>
+&nbsp; ■ &nbsp; 機率密度函數下方的面積代表族群中的數值會落在某一區間的機率<br>
+</p class="wwl">
+
+<p class="qiz">
+<span style="font-size:24px">`r "\U1F5FF"` 問題討論：</span><br>
+&nbsp; ■ &nbsp; 直方圖和數量分布之間有什麼關係？<br>
+```{r}
+#數量分布沒有前後順序可以互換但直方有順序性
+```
+
+&nbsp; ■ &nbsp; 數量分布和機率函數之間有何異同？<br>
+```{r}
+#兩者分佈狀況類似 但數量分布是以數量機率函數則是數量比率
+```
+
+&nbsp; ■ &nbsp; 機率函數下方的總面積是多大呢？<br>
+```{r}
+#1
+```
+
+</p class="qiz"><br>
+
+
+```{r fig.height=3.6, fig.width=6}
+W = 100
+par(mfrow=c(1,1),cex=0.7)
+curve(dbeta(x/W,2,2)/W,0,W,col='seagreen',lwd=3,main="Beta(2,2)",xlab="",y="Density")
+abline(v=seq(0,W,W/10),h=seq(0,1.5,0.1)/W,col='lightgray',lty=3)
+```
+
+<p class="qiz">
+<span style="font-size:24px">`r "\U1F5FF"` 問題討論：</span><br>
+&nbsp; ■ &nbsp; 從以上機率密度函數抽出80,000個樣本點，大約有多少點會落在40跟60之間？<br>
+```{r}
+20*0.0145*80000
+```
+
+&nbsp; ■ &nbsp; 如果以上機率密度函數的底(support)變為`[0, 1]`，它的最高點會變成多少？<br>
+```{r}
+#0.5
+```
+
+&nbsp; ■ &nbsp; 如果它的底變為`[0.95, 1.05]`，它的最高點會變成多少？<br>
+</p class="qiz"><br>
+```{r}
+#1
+```
+
+<hr>
+
+### 【C】個別抽樣的類別隨機變數
+
+我們將隨機變數定義為隨機實驗的結果(值)，由於這些實驗帶有隨機的成份(也就是說每一次實驗都可能跑出不同的結果)，所以隨機變數的值是不確定的。
+
+##### C1. 最簡單的隨機變數 - 類別目標變數、個別隨機抽樣
+最簡單的隨機變數就是隨機從目標族群之中選取一點，直接就把這一點當作隨機變數的值。
+
+##### C2. 個別隨機抽樣
+使用`sample()`做個別隨機抽樣時，將樣本大小設為1 (`size=1`)
+```{r}
+sample(Skin, size=1)   # sample size = 1
+```
+
+##### C3. 重複實驗與結果向量
+我們使用`replicate()`重複(隨機個別抽樣)實驗十次，將結果放在`skin1_10`這個類別向量裡面，由於`sample()`是從目標族群之中隨機抽樣，所以我們每一次執行這一段程式，所得到的類別向量都不會相同。
+```{r}
+skin1_10 = replicate(n=10, expr=sample(Skin, size=1))
+skin1_10
+```
+
+##### C4. 比較族群和重複個別抽樣的結果
+比較`Skin`和`skin1_10`之中各分類的比例
+```{r}
+Skin %>% table %>% prop.table
+skin1_10 %>% table %>% prop.table
+```
+
+<p class="qiz">
+<span style="font-size:24px">`r "\U1F5FF"` 問題討論：</span><br>
+在這個例子裡面 ...<br>
+&emsp; ■ 我們的研究對象(分析單位)是？<br>
+```{r}
+#類別變數的隨機分布
+```
+
+&emsp; ■ 目標族群？<br>
+```{r}
+#各膚色人種
+```
+
+&emsp; ■ 目標變數？<br>
+```{r}
+#膚色
+```
+
+&emsp; ■ 隨機變數？<br>
+```{r}
+#膚色種類
+```
+
+當我們用一個類別向量來代表我們的目標族群時 ...<br>
+&emsp; ■ `Skin`代表什麼？<br>
+```{r}
+#各膚色人種原有比例
+```
+
+&emsp; ■ `Skin[3:5]`代表什麼？<br>
+這個例子我們討論『類別變數」的『個別抽樣』隨機變數，在這裡 ...<br>
+&emsp; ■ 我們如何定義我們的隨機變數？<br>
+```{r}
+#以原有各膚色人種比例為底進行隨機取樣
+```
+
+&emsp; ■ 我們如何產生隨機變數的值？<br>
+當我將重複實驗的結果(值)存在`skin1_10`這個(類別的)『結果向量』裡面 ...<br>
+&emsp; ■ `skin1_10`代表什麼？<br>
+```{r}
+#以原有各膚色比例來隨機抽出10個樣本的集合
+```
+
+&emsp; ■ `skin1_10[10]`代表什麼？<br>
+```{r}
+#該集合第十個樣本資料
+```
+
+&emsp; ■ `Skin`和`skin1_10`的長度各是多少？它們的長度是一樣的嗎？<br>
+```{r}
+#10,10
+#長度相同
+```
+
+&emsp; ■ `Skin`和`skin1_10`之中各分類的比例是一樣的嗎？<br>
+```{r}
+#不一樣
+```
+
+最後 ...<br>
+&emsp; ■ 「目標族群的大小」和「重複實驗的次數」一定要相同嗎？<br>
+```{r}
+#不一定兩者大小都可以調整
+```
+
+&emsp; ■ 目標族群和重複實驗的結果向量、兩者之中各分類的比例應該要相同(類似)嗎？<br>
+```{r}
+#不一定 但重複實驗次數增加比例會相似
+```
+
+</p class="qiz"><br>
+
+##### C5. 增加重複抽樣的次數
+重複實驗10,100、1,000、10,000、100,000、1,000,000次，將結果放在`Trials`這個序列(list)物件裡面
+```{r}
+t0 = Sys.time()
+Trials = list(
+  skin1_10 =   replicate(10, sample(Skin, size=1)),
+  skin1_100 =  replicate(100, sample(Skin, size=1)),
+  skin1_1K =   replicate(1000, sample(Skin, size=1)),
+  skin1_10K =  replicate(10000, sample(Skin, size=1)),
+  skin1_100K = replicate(100000, sample(Skin, size=1))
+  )
+Sys.time() - t0
+```
+
+`Trials`的子物件長度
+```{r}
+sapply(Trials, length)
+```
+
+重複個別抽樣的結果之之中各分類的比例
+```{r}
+sapply(Trials, function(v) {
+  prop.table(table(v))
+  })
+```
+<br><hr>
+
+
+### 【D】個別抽樣的數值隨機變數
+
+接下來我們將隨機變數定義在數值變數(如`Weight`)之上，我們同樣可以用重複抽樣產生一系列的結果向量
+```{r}
+Trials = list(
+  weight1_10 =   replicate(10, sample(Weight, size=1)),
+  weight1_100 =  replicate(100, sample(Weight, size=1)),
+  weight1_1K =   replicate(1000, sample(Weight, size=1)),
+  weight1_10K =  replicate(10000, sample(Weight, size=1)),
+  weight1_100K = replicate(100000, sample(Weight, size=1))
+  )
+```
+
+```{r  fig.height=4}
+par(cex=0.75, mfrow=c(2,3), mar=c(4,5,5,1))
+for(v in Trials) { 
+  hist(v,breaks=seq(40,80,2.5),main=paste(length(v),"repeats"),xlab="Weight")
+  }
+hist(Weight, breaks=seq(40,80,2.5), col='gray', border='lightgray' )
+```
+<br><br>
+
+<p class="wwl">
+<span style="font-size:24px">`r "\U1F4A1"` 學習重點：</span><br>
+關於『隨機變數』 ...<br>
+&emsp; ■ 隨機變數是定義在隨機實驗上面， 隨機實驗的結果就是隨機變數的值<br>
+&emsp; ■ 我們透過實驗來產生隨機變數的值，由於實驗的結果是隨機的，
+         所以隨機變數的值也是不確定的<br>
+&emsp; ■ 一般我們將重複實驗(N次)的結果存放在一個向量裡面，稱它為(重複N次的)『結果向量』<br>
+&emsp; ■ 由於隨機變數的值不確定，所以通常我們關心的是它的『分布(Distribution)』<br>
+&emsp; ■ 所謂『分布』就是結果向量之中各類別(或數值區間)出現的頻率<br>
+隨機變數可以分為『類別』與『數值』兩大類 ...<br>
+&emsp; ■ 類別隨機變數的分布：各類別的比例，通常以直條圖表示<br>
+&emsp; ■ 數值隨機變數的分布：變數在數值空間之中的分布頻率(或機率)，
+         通常以直方圖(或密度函數)表示<br>
+『個別抽樣』可以說是最簡單的隨機變數 ...<br>
+&emsp; ■ 定義：從某一族群之中隨機選取一點， 直接以其值作為隨機變數的值<br>
+&emsp; ■ 我們用`sample()`做隨機抽樣，個別抽樣實驗的樣本大小：`size = 1`<br>
+&emsp; ■ 我們用`replicate(n,sample(.))`來重複實驗，
+         重複實驗的次數(`n`)不必與目標族群的大小相同<br>
+對定義在『個別抽樣』實驗之上的類別(數值)隨機變數而言 ...<br>
+&emsp; ■ 重複實驗的結果和族群之中各分類的比例(數值的分布)並不會完全一樣<br>
+&emsp; ■ 重複的次數越多，兩者之間的差異就會越來越小<br>
+&emsp; ■ 理論上，重複"無窮"多次時，
+         結果向量中各分類的比例(數值分布)就會趨近於族群之中的比例(分布)<br>
+<br></p class="qiz"><br>
+<hr>
+
+
+##### 補充教材：練習使用`%>%`和`lapply()`
+善用`%>%`和`lapply()`可以降低程式的複雜度，也可以避免留下沒有用的(中間暫存)資料物件
+```{r fig.height=4}
+lapply(10^(1:5), replicate, sample(Weight, 1)) %>% lapply(function(v) {
+  hist(v, breaks=seq(40,80,2.5), main=paste(length(v),"repeats"), xlab="") 
+  }) -> z
+```
+
+
