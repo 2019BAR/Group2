@@ -1,0 +1,177 @@
+---
+title: "bubbleplot"
+author: "group 02"
+date: "2019年4月25日"
+output: html_document
+---
+
+
+```{r results='hide', message=FALSE, warning=FALSE, echo=F}
+# This Chunk is for format setting, Do NOT Change the codes !
+rm(list=ls(all=T))
+knitr::opts_chunk$set(comment = NA)
+knitr::opts_knit$set(global.par = TRUE)
+par(cex=0.8)
+options(scipen=20, digits=5, width=80)
+if(!require(pacman)) install.packages("pacman")
+```
+<hr>
+
+**單元摘要：** 期中專案(OLIST)資料探索
+<br><br>
+### package
+```{r results='hide', message=FALSE, warning=FALSE}
+pacman::p_load(dplyr, MASS, dendextend, vegan, randomcoloR, googleVis, d3heatmap,ggplot2)
+```
+### 資料讀取
+```{r}
+load("data/olist.Rdata")
+P = left_join(P, TPC) %>% rename(category = product_category_name_english)
+I = left_join(I, P[,c(1:10)])
+Vst=c("MG","PR","RJ","RS","SP")#前五忠實顧客所在州
+```
+##### 忠實顧客名單
+```{r}
+sc=I[,c(1,3,4)]%>%left_join(O[,1:2])%>%left_join(C[,c(1:2,5)])%>%left_join(R[,2:3])
+ss=sc[,c(1,2,5,6,7)]
+ss2=ss%>%group_by(customer_unique_id,customer_state)%>%summarise(
+  no=n_distinct(order_id),
+  mrs=mean(review_score)
+)
+ss3=filter(ss2,no>2,mrs>3)#三張訂單以上且平均滿意度大於三的顧客定義為忠實顧客
+ss4=filter(ss3,customer_state%in%Vst)#篩選前五多忠實顧客所在州
+ggplot(ss3,aes(customer_state,fill=customer_state))+geom_bar()+labs(title="各州忠實顧客",x="州名",y="數量")
+ggplot(ss4,aes(customer_state,fill=customer_state))+geom_bar()
+```
+
+##### 每季熱銷產品
+```{r}
+#資料合併
+sh=left_join(O[,c(1,2,4)],R[,2:3])%>%     # pull score & timestamp into 'O'
+  rename(
+    time = order_purchase_timestamp, 
+    score = review_score) %>% 
+  mutate(                                   # cut timestamp into quarter    
+    quarter = as.Date(cut(time, "quarter"))
+    ) %>%  
+  right_join(I)%>%
+  left_join(C[,c(1:2,5)])
+#篩選忠實顧客的部分
+shh=right_join(sh,ss3[,1])%>%filter(customer_state%in%Vst)
+shh2=shh%>%group_by(quarter,category)%>%
+  summarise(                            # summarise by category & quarter
+    itemsSold = n(),                     
+    totalRev = sum(price),
+    avgPrice = mean(price),
+    avgScore = mean(score),
+    noProduct = n_distinct(product_id),
+    noSeller = n_distinct(seller_id)
+  )
+shh2=shh2%>%group_by(quarter)%>%mutate(noall=sum(itemsSold))
+shh2=shh2%>%group_by(quarter,category)%>%mutate(meanitemsSold=itemsSold/noall)
+shh2=shh2[,-9]
+#去除2016年資料與忠實顧客的好評產品
+shh3=shh2[-1,]%>%filter(avgScore>=3)
+shh3=shh3[!is.na(shh3$category),]%>%arrange(category,quarter)%>%as.data.frame()
+save(shh3, file="data/bubble.rdata")
+```
+
+##### B6. 動態泡泡圖
+```{r results='asis', tidy=FALSE, eval=F}
+plot( gvisMotionChart( 
+  shh3, "category", "quarter",
+  options=list(width=800, height=600) ))
+```
+
+#### 忠實顧客每月訂單數
+```{r}
+#轉換時間單位
+vs=mutate(sh,ym=time%>%format(format="%y-%m"),
+             month=time%>%format(format="%m"),
+             year=time%>%format(format="%Y") ,
+             season=(as.numeric(month)%/%3)%%4)%>%
+    filter(year!=2016,ym!="18-09")%>%#去除2016與2018年9月少數的幾筆資料方便觀看
+    right_join(ss3[,1])
+vs2=vs%>%group_by(ym,customer_state)%>%
+    summarise(no=n(),
+              nop=n_distinct(category))
+#繪圖
+  ggplot(vs2,aes(ym,no,col=customer_state,group=customer_state))+
+    geom_point()+
+    geom_line()+
+    labs(title="各州每月訂單數",x="時間",y="數量")
+#篩選前五州資料
+vs3=vs2%>%filter(customer_state%in%Vst)
+#繪圖
+  ggplot(vs3,aes(ym,no,col=customer_state,group=customer_state))+
+    geom_point()+
+    geom_line()+
+    labs(title="各州每月訂單數",x="時間",y="數量")
+```
+#### 忠實顧客的熱門商品
+```{r}
+#資料整理
+vp=vs%>%group_by(customer_state,category)%>%
+        summarise(no=n(),meanscore=sum(score)/no)
+vp=vp%>%group_by(customer_state)%>%
+        mutate(noall=sum(no),p=no/noall)#p為銷售量比率
+vp=vp%>%group_by(customer_state)%>%filter(p==max(p),meanscore>=3)
+vp=filter(vp,customer_state%in%Vst)
+#繪圖
+ggplot(vp,aes(customer_state,no,fill=category))+geom_bar(stat="identity")
+ggplot(vp,aes(customer_state,p,fill=category))+geom_bar(stat="identity")#銷售量比率
+```
+
+
+#### 忠實顧客每季的熱門商品
+```{r}
+#每季熱門商品
+vps=vs%>%group_by(year,season,customer_state,category)%>%
+    summarise(no=n(),
+              meanscore=sum(score)/no)
+
+#篩選出各州每季的最熱賣商品
+vps=vps%>%group_by(year,season,customer_state)%>%mutate(p=no/sum(no))%>%filter(no==max(no),meanscore>=3)%>%filter(meanscore==max(meanscore))
+#取出前五州
+vps=vps%>%filter(customer_state%in%Vst)
+#繪圖
+  ggplot(vps,aes(customer_state,no,fill=category)) +
+    geom_bar(stat="identity") +
+    facet_wrap(year~season,ncol=4)+
+    labs(title="忠實顧客各季暢銷產品與銷售量",x="季",y="銷售量")
+```
+
+#### 支付方式與花費狀況
+```{r}
+#資料整理
+mm=I[,c(1,6,7)]%>%left_join(O[,c(1:2,4)])%>%left_join(C[,c(1:2,5)])%>%left_join(D[,c(1,3)])
+mm=mm[,c(2,3,5,7,8)]
+mm=mm%>%mutate(ttprice=price+freight_value,
+               ym=order_purchase_timestamp%>%format(format="%y-%m"),
+               month=order_purchase_timestamp%>%format(format="%m"),
+               year=order_purchase_timestamp%>%format(format="%Y"),
+               season=(as.numeric(month)%/%3)%%4)
+mm=mm[,-3]%>%filter(customer_state%in%Vst)
+#每季各州消費狀況
+mm2=mm%>%filter(year!=2016,ym!="18-09")%>%
+  group_by(year,season,customer_state,payment_type)%>%
+  summarise(no=n(),totalprice=sum(ttprice),meanprice=totalprice/no)
+#繪圖
+ggplot(mm2,aes(season,meanprice,col=customer_state,group=customer_state))+geom_line()+geom_point()+facet_wrap(year~payment_type)
+#盒狀圖比較
+ggplot(mm2,aes(payment_type,meanprice,col=year))+geom_boxplot()+labs(title="五州各付費方式平均花費")
+#整體消費方式與花費金額
+mm3=mm2%>%group_by(year,season,payment_type)%>%
+    summarise(no=n(),totalprice=sum(totalprice),meanprice=totalprice/no)
+#繪圖
+ggplot(mm3,aes(season,meanprice,group=payment_type,col=payment_type))+geom_line()+geom_point()+labs(title="每季付費方式與平均花費")+facet_wrap(.~year,ncol=4)
+#每月
+m2=mm%>%group_by(ym,customer_state,payment_type)%>%
+  summarise(no=n(),totalprice=sum(ttprice),meanprice=totalprice/no)
+m2=m2[!is.na(m2$payment_type),]
+m2=m2%>%group_by(ym,payment_type)%>%
+  summarise(meanprice=sum(meanprice)/n_distinct(customer_state))
+ggplot(m2,aes(ym,meanprice,group=payment_type))+geom_line()+geom_point()+labs(title="每月付費方式與平均花費")+facet_wrap(.~payment_type)
+```
+```
+
