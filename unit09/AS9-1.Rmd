@@ -1,6 +1,6 @@
 ---
-title: UNIT09D 案例：航空公司的市場區隔
-author: 中山大學管理學院 卓雍然
+title: AS9-1 案例：航空公司的市場區隔
+author: Group2
 date: "`r Sys.time()`"
 output: 
   html_document:
