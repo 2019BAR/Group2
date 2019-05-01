@@ -1,0 +1,168 @@
+---
+title: UNIT09D 案例：航空公司的市場區隔
+author: 中山大學管理學院 卓雍然
+date: "`r Sys.time()`"
+output: 
+  html_document:
+    highlight: pygments
+    theme: flatly
+    css: style.css
+---
+
+```{r results='hide', message=FALSE, warning=FALSE, echo=F}
+# 這些程式碼設定網頁的格式，並安裝、載入一些基本的套件，請大家不要去改動<br>
+rm(list=ls(all=T))
+knitr::opts_chunk$set(comment = NA)
+knitr::opts_knit$set(global.par = TRUE)
+par(cex=0.8)
+options(scipen=20, digits=5, width=80)
+if(!require(pacman)) install.packages("pacman")
+```
+<br>
+
+<p class="wwl">
+<span style="font-size:24px">`r "\U1F4A1"` 學習重點：</span><br>
+&emsp; ■ 集群分析的基本觀念<br>
+&emsp; ■ 距離矩陣：Distance Matrix<br>
+&emsp; ■ 層級式集群分析：Hierarchical Cluster Analysis<br>
+&emsp; ■ 樹狀圖(Dendrogram)的判讀<br>
+&emsp; ■ 依據樹狀圖決定要分多少群<br>
+&emsp; ■ 以群組平均值檢視各族群的屬性<br>
+</p class="wwl">
+
+<hr>
+
+```{r results='hide', message=FALSE, warning=FALSE}
+pacman::p_load(dplyr, ggplot2)
+```
+<br>
+
+### 【A】航空公司顧客資料集
+
+```{r}
+A = read.csv('data/AirlinesCluster.csv')
+summary(A)
+```
+
++ Balance: 可用里程數
++ QualMiles: 可用高等里程數
++ BonusMiles: 過去12個月非飛行里程數
++ BonusTrans: 過去12個月非飛行交易次數
++ FlightMiles: 過去12個月飛行里程數
++ FlightTrans: 過去12個月飛行交易次數
++ DaysSinceEnroll: 會員年資 (天)
+
+
+<br><br>
+
+### 【B】資料常態化
+
+<span style="font-size:24px">`r "\U1F5FF"`</span>
+為甚麼要做資料常態化？<br>
+Ans:<br><br>
+1.平均數變為0,標準差變為1（區間）<br>
+2.此做法較方便觀察<br>
+3.把圖形的位置移到同一個區間的差別<br><br>
+
+
+```{r}
+colMeans(A) %>% sort
+```
+
+```{r}
+AN = scale(A) %>% data.frame
+```
+
+```{r}
+sapply(AN, mean)
+```
+
+```{r}
+sapply(AN, sd)
+```
+
+<br><br>
+
+### 【C】層級式集群分析 Hirarchical Clustering  
+
+1.距離矩陣
+```{r}
+d = dist(AN, method="euclidean")
+```
+
+2.層級式集群分析
+```{r}
+hc = hclust(d, method='ward.D')
+```
+
+3.畫出樹狀圖
+```{r}
+plot(hc)
+```
+<br>
+<span style="font-size:24px">`r "\U1F5FF"`</span>
+如何從樹狀圖決定群數？<br>
+Ans:<br><br>
+畫一條水平線，與水平線相交的垂直線數為群數的數目。<br><br>
+
+
+
+4.分割群組 
+```{r}
+kg = cutree(hc, k=5)
+table(kg)
+```
+
+<br><br>
+
+### 【D】觀察群組特性
+
+```{r}
+sapply(split(A,kg), colMeans) %>% round(2) 
+```
+
+```{r}
+par(cex=0.8)
+split(AN,kg) %>% sapply(colMeans) %>% barplot(beside=T,col=rainbow(7))
+legend('topright',legend=colnames(A),fill=rainbow(7))
+```
+
+<br><br>
+
+<p class="qiz">
+<span style="font-size:24px">`r "\U1F5FF"` 討論問題：</span><br>
+&emsp; ■ 請你們為這五個族群各起一個名稱<br>
+&emsp; ■ 請你們為這五個族群各設計一個行銷策略<br>
+&emsp; ■ 統計上最好的分群也是實務上最好的分群嗎<br>
+&emsp; ■ 除了考慮群間和群間距離之外，實務上的分群通常還需要考慮那些因數？<br>
+Ans:<br><br>
+1.五個族群的名字：<br>
+(1)整體消費弱、年資長會員<br>
+(2)高飛行里程會員<br>
+(3)高非飛行里程會員<br>
+(4)成長型會員<br>
+(5)整體消費弱、年資短會員<br><br>
+2.針對五個族群進行的策略：<br>
+(1)贈送回饋券（因飛行次數少）<br>
+(2)送Bonus里程數<br>
+(3)贈送機票折價券（提高飛行率）<br>
+(4)鼓勵飛行率的廣告優惠投放<br>
+(5)投放廣告、提升誘因<br><br>
+
+3.統計上數字能給出客觀的分析，但實務上須考慮其他變數。以航空公司來說，除了統計上的數字外，我們可能需要更多的細節來做行銷，或是實務的分群可能會牽涉非數字的決策，如：政策。但是，統計分群不可否認還是會提供管理者客觀的結果。<br><br>
+4.實務上的分群會需要考量到非數字的決策，從類別的分析可以看出以不同的項目（飛行時間、註冊長短等）來看的話，分群就會有所差異，所以管理者分群時要配合公司需求，或是成本或經濟效益的考量，搭配做出決策。<br>
+＃可改善群組特性：考量商務與旅遊、時間、年齡等差異。<br>
+```
+
+</p class="qiz">
+
+<br><br><br><hr>
+
+
+
+
+
+
+？
+
+
