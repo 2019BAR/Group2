@@ -1,0 +1,69 @@
+---
+title: TF1_資料彙整 
+author: 卓雍然, 中山大學 管理學術研究中心
+date: "`r Sys.time()`"
+output:
+  html_document:
+    highlight: pygments
+    theme: flatly
+    css: style.css
+---
+<br>
+
+<hr>
+
+### 1. 交易項目計錄：`Z`
+
+```{r echo=T, message=F, cache=F, warning=F}
+rm(list=ls(all=T))
+Sys.setlocale("LC_TIME","C")
+pacman::p_load(magrittr,dplyr, ggplot2, readr, FactoMineR, factoextra, MASS, dendextend, vegan, randomcoloR, googleVis, d3heatmap)
+```
+
+##### 1.1 讀進資料
+```{r}
+
+load("data/tf0.rdata")
+#Z = read_csv("D:/data/ta_feng_all_months_merged.csv")%>% data.frame %>% 
+#  setNames(c("date","cust","age","area","cat","prod","qty","cost","price"))
+A=A0
+X=X0
+Z=Z0
+```
+
+```{r}
+#主成分分析
+pca = PCA(A[,c(2:4,6:8)])
+#Kmean分群
+set.seed(111)#c(2:4,6:8),c(4:8)
+B=A[,c(4:8)]%>%scale%>%data.frame()#f訂單數 md平均購買週期 rev 平均消費raw平均利潤
+km=kmeans(B,centers=6,nstart=40)#center分群數,nstart重複執行次數
+ggplot(B,aes(md,rev,col=as.factor(km$cluster)))+geom_point(alpha=0.3)+stat_density2d(aes(color = factor(km$cluster)))#繪圖
+```
+
+```{r}
+#群組各變數直方圖 ps:三行一起跑
+par(cex=0.8)
+split(B,km$cluster) %>% sapply(colMeans) %>% barplot(beside=T,col=rainbow(5))
+legend('topright',legend=colnames(B),fill=rainbow(5))
+#分群繪圖
+fviz_cluster(km,B,geom = c("point"))
+```
+
+```{r}
+#計算WSS/BSS/TSS
+klist <- seq(1:10)
+knnFunction <- function(x) {
+    kms <- kmeans(B, centers = x, nstart = 10)
+    ratio <- kms$tot.withinss / (kms$tot.withinss + kms$betweenss)
+}
+ratios <- sapply(klist, knnFunction)
+df <- data.frame(
+       kv = klist, KMratio = ratios)
+ggplot(df, aes(x = kv, y = KMratio, label = kv, color = KMratio)) +
+geom_point(size = 5) + geom_text(vjust = 2)
+```
+
+
+
+<br><br><br><br>
