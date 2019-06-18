@@ -1,0 +1,178 @@
+---
+title: final 
+author: 第二組
+date: "`r Sys.time()`"
+output:
+  html_document:
+    highlight: pygments
+    theme: flatly
+    css: style.css
+---
+
+
+
+<hr>
+
+### Loading & Preparing Data
+```{r echo=T, message=F, cache=F, warning=F}
+pacman::p_load(dplyr,ggplot2,caTools,manipulate,latex2exp,magrittr, readr, FactoMineR, factoextra, MASS, dendextend, vegan, randomcoloR, googleVis)
+rm(list=ls(all=TRUE))
+Sys.setlocale("LC_TIME","C")
+load("data/tf2.rdata")
+
+```
+##kmean分群
+```{r}
+#主成分分析
+pca = PCA(A[,c(4:8)])
+set.seed(111)
+C=A[,c(4:8)]%>%scale%>%data.frame()#f訂單數 md平均購買週期 rev 平均消費raw平均利潤
+km=kmeans(C,centers=6,nstart=40)#center分群數,nstart重複執行次數
+A$group=factor(km$cluster, levels=c(1,2,3,4,5,6),labels=c("m","p","s","h","c","a"))
+#m猴子p企鵝s樹懶h倉鼠c駱駝a鱷魚
+#繪圖
+ggplot(C,aes(f,m,col=as.factor(km$cluster)))+geom_point(alpha=0.3)+stat_density2d(aes(color = factor(km$cluster)))
+```
+##分群後視覺化
+```{r}
+
+#群組各變數直方圖 
+par(cex=0.77)
+split(C,km$cluster) %>% sapply(colMeans) %>% barplot(beside=T,col=rainbow(5))
+legend('topright',legend=colnames(A[,4:8]),fill=rainbow(5))
+```
+```{r}
+#分群繪圖
+fviz_cluster(km,C,geom = c("point"))
+```
+```{r}
+#各年齡中各群數目
+AA=A%>%group_by(age,group)%>%summarise(no=n(),revs=sum(rev))
+ggplot(AA,aes(age,no,col=group,group=group))+geom_point()+geom_path()
+M=A%>%filter(group=="a")
+M=Z[Z$cust%in%M[,1],c(2,5,7:9)]%>%group_by(cat)%>%summarise(no=sum(qty),costs=sum(cost)/no)
+ggplot(M,aes(no,costs,col=costs>1000))+geom_point()
+```
+
+
+
+##### 分配訓練集與測試集
+```{r}
+TR = subset(A, spl)
+TS = subset(A, !spl)
+```
+<br><hr>
+
+### 建模
+```{r}
+glm1 = glm(buy ~ ., TR[,c(2:9,12)], family=binomial()) #取amount,id,group外的集合
+summary(glm1)
+pred =  predict(glm1, TS, type="response")
+cm = table(actual = TS$buy, predict = pred > 0.5); cm
+acc.ts = cm %>% {sum(diag(.))/sum(.)}; acc.ts          # 0.7034
+colAUC(pred, TS$buy)                                   # 0.7521
+```
+<br><hr>
+
+### 回歸模型
+```{r}
+A2 = subset(A, A$buy) %>% mutate_at(c("m","rev","amount"), log10)
+TR2 = subset(A2, spl2)
+TS2 = subset(A2, !spl2)
+```
+
+```{r}
+lm1 = lm(amount ~ ., TR2[,c(2:9,11)])
+summary(lm1)
+```
+
+```{r}
+r2.tr = summary(lm1)$r.sq
+SST = sum((TS2$amount - mean(TR2$amount))^ 2)
+SSE = sum((predict(lm1, TS2) -  TS2$amount)^2)
+r2.ts = 1 - (SSE/SST)#決定係數
+c(r2.tr, r2.ts)
+#0.2978 0.2631
+```
+<br><hr>
+
+
+
+
+### 預測
+```{r}
+load("data/tf0.rdata")
+d0 = max(X0$date) + 1
+B = X0 %>% 
+  filter(date >= as.Date("2000-12-01")) %>% 
+  mutate(days = as.integer(difftime(d0, date, units="days"))) %>% 
+  group_by(cust) %>% summarise(
+    r = min(days),      # recency
+    s = max(days),      # seniority
+    f = n(),            # frquency
+    md=(s-r)/f,         #平均購買週期
+    m = mean(total),    # monetary
+    rev = sum(total),   # total revenue contribution
+    raw = sum(gross),   # total gross profit contribution
+    age = age[1],       # age group
+    area = area[1]     # area code
+  ) %>% data.frame      # 28531
+nrow(B)
+B=inner_join(B,A[,c(1,13)])
+```
+
+```{r}
+B$Buy = predict(glm1, B, type="response")
+```
+
+```{r}
+B$Rev = predict(lm1, B)
+```
+##回購機率與回購金額分布
+```{r fig.height=2.4, fig.width=7.2}
+par(mfrow=c(1,2), cex=0.8)
+hist(B$Buy)
+hist(log(B$Rev,10))
+```
+##### 使用模擬方法視覺化成效
+```{r}
+m=0.09; a=23; b=17
+do.call(rbind, lapply(seq(5,40,0.5), function(c){
+  p = m*plogis((10/a)*(c-b))
+  B %>% mutate(
+    PI = ifelse(Buy<=(1-p), p, 1-Buy) * Rev - c
+  ) %>%
+    group_by(group) %>% summarise(
+      Cost = c,
+      Group.Sz = n(),
+      No.Target = sum(PI>0),
+      AvgROI = mean(PI[PI>0]),
+      TotalROI = sum(PI[PI>0])
+    ) } ) ) %>% 
+  ggplot(aes(x=Cost, y=TotalROI, col=group)) +#總效益
+  geom_line(size=1.2) +
+  ggtitle("Cost Effeciency per Segment ")
+```
+
+```{r}
+m=0.09; a=23; b=17
+do.call(rbind, lapply(seq(5,40,0.5), function(c){
+  p = m*plogis((10/a)*(c-b))
+  B %>% mutate(
+    PI = ifelse(Buy<=(1-p), p, 1-Buy) * Rev - c
+  ) %>%
+    group_by(group) %>% summarise(
+      Cost = c,
+      Group.Sz = n(),
+      No.Target = sum(PI>0),
+      AvgROI = mean(PI[PI>0]),
+      TotalROI = sum(PI[PI>0])
+    ) } ) ) %>% 
+  ggplot(aes(x=Cost, y=AvgROI, col=group)) +#單位效益
+  geom_line(size=1.2) +
+  ggtitle("Cost Effeciency per Segment ")
+```
+
+<br><br><hr><br><br>
+
+
